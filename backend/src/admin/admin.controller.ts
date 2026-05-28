@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-unsafe-call, @typescript-eslint/no-floating-promises */
+
 import {
   Body,
   Controller,
@@ -13,8 +15,9 @@ import {
   Response as ExpressResponse,
 } from '@nestjs/common';
 import { CacheInterceptor, CacheTTL } from '@nestjs/cache-manager';
-import { ApiBearerAuth, ApiOperation, ApiResponse } from '@nestjs/swagger';
-import type { Response } from 'express';
+import { ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+
+type RequestUser = Request & { user: { id: string } };
 import { Roles } from '../common/decorators/roles.decorator';
 import { Role } from '../common/enums/role.enum';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
@@ -56,7 +59,10 @@ export class AdminController {
     description: 'Competition cannot be cancelled',
   })
   @ApiResponse({ status: 502, description: 'Refund process failed' })
-  async cancelCompetition(@Param('id') id: string, @Request() req: any) {
+  async cancelCompetition(
+    @Param('id') id: string,
+    @Request() req: RequestUser,
+  ) {
     return this.adminService.adminCancelCompetition(
       id,
       (req as { user: { id: string } }).user.id,
@@ -77,9 +83,7 @@ export class AdminController {
     status: 200,
     description: 'Paginated list of verified addresses',
   })
-  async listVerifiedAddresses(
-    @Query() query: ListVerifiedAddressesQueryDto,
-  ) {
+  async listVerifiedAddresses(@Query() query: ListVerifiedAddressesQueryDto) {
     return this.adminService.listVerifiedAddresses(query);
   }
 

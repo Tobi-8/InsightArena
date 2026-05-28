@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, LessThan } from 'typeorm';
+import { Repository, In } from 'typeorm';
 import { CreatorEventMatch } from '../creator-events/entities/creator-event-match.entity';
 import { CreatorEvent } from '../creator-events/entities/creator-event.entity';
 import {
@@ -40,7 +40,7 @@ export class OracleService {
 
     const eventIds = [...new Set(matches.map((m) => m.event_id))];
     const events = eventIds.length > 0
-      ? await this.eventRepository.findByIds(eventIds)
+      ? await this.eventRepository.findBy({ id: In(eventIds) })
       : [];
     const eventMap = new Map(events.map((e) => [e.id, e]));
 
