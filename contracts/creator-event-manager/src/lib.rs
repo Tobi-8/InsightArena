@@ -3,6 +3,7 @@
 pub mod admin;
 mod event;
 mod invite;
+mod oracle;
 pub mod r#match;
 pub mod prediction;
 pub mod storage;
