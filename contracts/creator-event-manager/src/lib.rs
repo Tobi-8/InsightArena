@@ -19,7 +19,7 @@ use admin::AdminError;
 use event::EventError;
 use storage_types::{Event, Match, Prediction, Winner};
 use verification::VerificationError;
-use views::EventStatistics;
+use views::{EventStatistics, PlatformStatistics};
 
 // ---------------------------------------------------------------------------
 // Contract entry point
@@ -507,5 +507,13 @@ impl CreatorEventManagerContract {
             Err(oracle::OracleError::Overflow) => panic!("overflow"),
             Err(_) => panic!("unexpected_error"),
         }
+    }
+
+    /// Get platform-wide statistics.
+    ///
+    /// Returns aggregated statistics including total events, matches,
+    /// predictions, unique participants, and total fees collected.
+    pub fn get_platform_statistics(env: Env) -> PlatformStatistics {
+        views::get_platform_statistics(&env)
     }
 }

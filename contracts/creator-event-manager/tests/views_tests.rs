@@ -239,3 +239,144 @@ fn test_event_statistics_missing_event_panics() {
     let (_env, client, _contract_id, _xlm_token) = setup();
     client.get_event_statistics(&999u64);
 }
+
+// ============================================================================
+// Platform Statistics Tests (#821)
+// ============================================================================
+
+#[test]
+fn test_get_platform_statistics_all_statistics_accurate() {
+    let (env, client, contract_id, xlm_token) = setup();
+    let creator1 = Address::generate(&env);
+    let creator2 = Address::generate(&env);
+    let user1 = Address::generate(&env);
+    let user2 = Address::generate(&env);
+
+    // Create first event
+    fund(&env, &xlm_token, &creator1, FEE);
+    let (event_id_1, invite_code_1) =
+        client.create_event(&creator1, &title(&env), &desc(&env), &5u32);
+    client.join_event(&user1, &invite_code_1);
+    client.join_event(&user2, &invite_code_1);
+
+    env.as_contract(&contract_id, || {
+        let match_id = add_match(&env, event_id_1, false);
+        add_prediction(&env, event_id_1, match_id, &user1);
+        add_prediction(&env, event_id_1, match_id, &user2);
+    });
+
+    // Create second event
+    fund(&env, &xlm_token, &creator2, FEE);
+    let (event_id_2, invite_code_2) =
+        client.create_event(&creator2, &title(&env), &desc(&env), &5u32);
+    client.join_event(&user1, &invite_code_2);
+
+    env.as_contract(&contract_id, || {
+        let match_id = add_match(&env, event_id_2, false);
+        add_prediction(&env, event_id_2, match_id, &user1);
+    });
+
+    let stats = client.get_platform_statistics();
+
+    assert_eq!(stats.total_events, 2);
+    assert_eq!(stats.total_matches, 2);
+    assert_eq!(stats.total_predictions, 3);
+    assert_eq!(stats.unique_participants, 2); // user1 and user2
+    assert_eq!(stats.total_fees_collected, FEE * 2);
+}
+
+#[test]
+fn test_get_platform_statistics_counters_increment_correctly() {
+    let (env, client, contract_id, xlm_token) = setup();
+    let creator = Address::generate(&env);
+
+    // Initial state
+    let initial_stats = client.get_platform_statistics();
+    assert_eq!(initial_stats.total_events, 0);
+    assert_eq!(initial_stats.total_matches, 0);
+    assert_eq!(initial_stats.total_predictions, 0);
+
+    // Create event
+    fund(&env, &xlm_token, &creator, FEE);
+    let (event_id, _) = client.create_event(&creator, &title(&env), &desc(&env), &5u32);
+
+    let after_event = client.get_platform_statistics();
+    assert_eq!(after_event.total_events, 1);
+    assert_eq!(after_event.total_fees_collected, FEE);
+
+    // Add match
+    env.as_contract(&contract_id, || {
+        add_match(&env, event_id, false);
+    });
+
+    let after_match = client.get_platform_statistics();
+    assert_eq!(after_match.total_matches, 1);
+
+    // Add prediction
+    let user = Address::generate(&env);
+    env.as_contract(&contract_id, || {
+        storage::add_event_participant(&env, event_id, &user);
+        let match_id = storage::get_event_matches(&env, event_id).get(0).unwrap();
+        add_prediction(&env, event_id, match_id, &user);
+    });
+
+    let after_prediction = client.get_platform_statistics();
+    assert_eq!(after_prediction.total_predictions, 1);
+}
+
+#[test]
+fn test_get_platform_statistics_unique_participants_calculated() {
+    let (env, client, contract_id, xlm_token) = setup();
+    let creator = Address::generate(&env);
+    let user1 = Address::generate(&env);
+    let user2 = Address::generate(&env);
+
+    // Event 1 with user1 and user2
+    fund(&env, &xlm_token, &creator, FEE);
+    let (event_id_1, invite_code_1) =
+        client.create_event(&creator, &title(&env), &desc(&env), &5u32);
+    client.join_event(&user1, &invite_code_1);
+    client.join_event(&user2, &invite_code_1);
+
+    // Event 2 with user1 only (should not double count)
+    fund(&env, &xlm_token, &creator, FEE);
+    let (event_id_2, invite_code_2) =
+        client.create_event(&creator, &title(&env), &desc(&env), &5u32);
+    client.join_event(&user1, &invite_code_2);
+
+    let stats = client.get_platform_statistics();
+    assert_eq!(stats.unique_participants, 2); // Only user1 and user2, no duplicates
+}
+
+#[test]
+fn test_get_platform_statistics_empty_platform() {
+    let (_env, client, _contract_id, _xlm_token) = setup();
+
+    let stats = client.get_platform_statistics();
+
+    assert_eq!(stats.total_events, 0);
+    assert_eq!(stats.total_matches, 0);
+    assert_eq!(stats.total_predictions, 0);
+    assert_eq!(stats.unique_participants, 0);
+    assert_eq!(stats.total_fees_collected, 0);
+}
+
+#[test]
+fn test_get_platform_statistics_fees_accumulated() {
+    let (env, client, _contract_id, xlm_token) = setup();
+    let creator1 = Address::generate(&env);
+    let creator2 = Address::generate(&env);
+    let creator3 = Address::generate(&env);
+
+    fund(&env, &xlm_token, &creator1, FEE);
+    client.create_event(&creator1, &title(&env), &desc(&env), &5u32);
+
+    fund(&env, &xlm_token, &creator2, FEE);
+    client.create_event(&creator2, &title(&env), &desc(&env), &5u32);
+
+    fund(&env, &xlm_token, &creator3, FEE);
+    client.create_event(&creator3, &title(&env), &desc(&env), &5u32);
+
+    let stats = client.get_platform_statistics();
+    assert_eq!(stats.total_fees_collected, FEE * 3);
+}

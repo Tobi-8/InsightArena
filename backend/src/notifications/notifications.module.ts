@@ -11,6 +11,7 @@ import { UserPreferences } from '../users/entities/user-preferences.entity';
 import { CreatorEvent } from '../matches/entities/creator-event.entity';
 import { Match } from '../matches/entities/match.entity';
 import { MatchPrediction } from '../matches/entities/match-prediction.entity';
+import { WebsocketModule } from '../websocket/websocket.module';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { MatchPrediction } from '../matches/entities/match-prediction.entity';
       MatchPrediction,
     ]),
     UsersModule,
+    WebsocketModule,
   ],
   controllers: [NotificationsController],
   providers: [NotificationsService, EmailService, NotificationGeneratorService],

@@ -153,3 +153,73 @@ pub fn get_user_events(env: &Env, user: Address) -> Vec<u64> {
 
     out
 }
+
+/// Platform-wide statistics aggregated across all events.
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct PlatformStatistics {
+    pub total_events: u64,
+    pub total_matches: u64,
+    pub total_predictions: u64,
+    pub unique_participants: u32,
+    pub total_fees_collected: i128,
+}
+
+/// Get platform-wide statistics.
+///
+/// Aggregates data across all events to provide a comprehensive view of
+/// platform activity including total events, matches, predictions, unique
+/// participants, and fees collected.
+///
+/// # Returns
+/// `PlatformStatistics` struct with aggregated platform data.
+pub fn get_platform_statistics(env: &Env) -> PlatformStatistics {
+    let instance = env.storage().instance();
+    
+    // Get counters
+    let total_events = instance
+        .get::<DataKey, u64>(&DataKey::EventCounter(0))
+        .unwrap_or(0);
+    
+    let total_matches = instance
+        .get::<DataKey, u64>(&DataKey::MatchCounter(0))
+        .unwrap_or(0);
+    
+    let total_predictions = instance
+        .get::<DataKey, u64>(&DataKey::PredictionCounter(0))
+        .unwrap_or(0);
+
+    // Calculate unique participants across all events
+    let mut unique_participants_set: Vec<Address> = Vec::new(env);
+    let mut total_fees_collected: i128 = 0;
+
+    for event_id in 1..=total_events {
+        if let Ok(event) = storage::get_event(env, event_id) {
+            // Accumulate fees
+            total_fees_collected = total_fees_collected.saturating_add(event.creation_fee_paid);
+
+            // Track unique participants
+            let participants = storage::get_event_participants(env, event_id);
+            for participant in participants.iter() {
+                let mut found = false;
+                for i in 0..unique_participants_set.len() {
+                    if unique_participants_set.get(i).unwrap() == participant {
+                        found = true;
+                        break;
+                    }
+                }
+                if !found {
+                    unique_participants_set.push_back(participant);
+                }
+            }
+        }
+    }
+
+    PlatformStatistics {
+        total_events,
+        total_matches,
+        total_predictions,
+        unique_participants: unique_participants_set.len(),
+        total_fees_collected,
+    }
+}

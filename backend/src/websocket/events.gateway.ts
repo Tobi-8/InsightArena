@@ -117,6 +117,22 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
     client.emit('left', { room });
   }
 
+  @SubscribeMessage('notification:delivered')
+  handleNotificationDelivered(
+    @ConnectedSocket() client: AuthenticatedSocket,
+    @MessageBody() data: { notification_id: number },
+  ): void {
+    if (!client.userAddress) {
+      client.emit('error', { message: 'Unauthorized' });
+      return;
+    }
+    // Emit event for notification broadcaster to handle
+    this.server.emit('internal:notification:confirmed', {
+      user_address: client.userAddress,
+      notification_id: data.notification_id,
+    });
+  }
+
   private checkRateLimit(socketId: string): boolean {
     const count = this.rateLimits.get(socketId) ?? 0;
     if (count >= this.RATE_LIMIT) return false;

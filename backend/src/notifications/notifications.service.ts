@@ -2,12 +2,14 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In, FindOptionsWhere } from 'typeorm';
 import { Notification, NotificationType } from './entities/notification.entity';
+import { NotificationBroadcasterService } from '../websocket/notification-broadcaster.service';
 
 @Injectable()
 export class NotificationsService {
   constructor(
     @InjectRepository(Notification)
     private readonly notificationsRepository: Repository<Notification>,
+    private readonly notificationBroadcaster: NotificationBroadcasterService,
   ) {}
 
   async create(
@@ -24,7 +26,19 @@ export class NotificationsService {
       message,
       data: data ?? null,
     });
-    return this.notificationsRepository.save(notification);
+    const saved = await this.notificationsRepository.save(notification);
+
+    // Broadcast via WebSocket
+    this.notificationBroadcaster.broadcastNewNotification(userAddress, {
+      id: saved.id,
+      type: saved.type,
+      title: saved.title,
+      message: saved.message,
+      data: saved.data ?? undefined,
+      created_at: saved.created_at,
+    });
+
+    return saved;
   }
 
   async findAllForUser(
@@ -71,6 +85,9 @@ export class NotificationsService {
       { id, user_address: userAddress },
       { read: true },
     );
+
+    // Broadcast read status via WebSocket
+    this.notificationBroadcaster.broadcastNotificationRead(userAddress, id);
   }
 
   async markAllAsRead(userAddress: string): Promise<{ updated: number }> {

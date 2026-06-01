@@ -3,6 +3,7 @@ import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { EventsGateway } from './events.gateway';
 import { BroadcasterService } from './broadcaster.service';
+import { NotificationBroadcasterService } from './notification-broadcaster.service';
 
 @Module({
   imports: [
@@ -14,7 +15,7 @@ import { BroadcasterService } from './broadcaster.service';
       }),
     }),
   ],
-  providers: [EventsGateway, BroadcasterService],
-  exports: [BroadcasterService],
+  providers: [EventsGateway, BroadcasterService, NotificationBroadcasterService],
+  exports: [BroadcasterService, NotificationBroadcasterService],
 })
 export class WebsocketModule {}
