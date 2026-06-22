@@ -238,6 +238,7 @@ fn make_match(env: &Env, match_id: u64, event_id: u64, match_time: u64) -> Match
         String::from_str(env, "Team Alpha"),
         String::from_str(env, "Team Beta"),
         match_time,
+        1u32,
     )
 }
 
@@ -330,6 +331,7 @@ fn test_match_validation_empty_team_a() {
         String::from_str(&env, ""),
         String::from_str(&env, "Beta"),
         0,
+        1u32,
     );
     assert!(m.validate().is_err());
 }
@@ -343,6 +345,7 @@ fn test_match_validation_empty_team_b() {
         String::from_str(&env, "Alpha"),
         String::from_str(&env, ""),
         0,
+        1u32,
     );
     assert!(m.validate().is_err());
 }
@@ -351,7 +354,7 @@ fn test_match_validation_empty_team_b() {
 fn test_match_validation_same_teams() {
     let env = Env::default();
     let name = String::from_str(&env, "Same");
-    let m = Match::new(1, 100, name.clone(), name, 0);
+    let m = Match::new(1, 100, name.clone(), name, 0, 1u32);
     assert!(m.validate().is_err());
 }
 
@@ -427,7 +430,7 @@ fn test_prediction_grading_correct() {
     let predictor = Address::generate(&env);
 
     let mut pred = Prediction::new(1, 5, 10, predictor, 2u32, 1u32, 1_640_995_200, &env);
-    pred.grade(2u32, 1u32); // Exact match
+    pred.grade(2u32, 1u32, 1u32); // Exact match
 
     assert_eq!(pred.is_correct, Some(true));
     assert_eq!(pred.points_earned, Some(4)); // 1 + 3 for exact
@@ -440,7 +443,7 @@ fn test_prediction_grading_wrong() {
     let predictor = Address::generate(&env);
 
     let mut pred = Prediction::new(1, 5, 10, predictor, 2u32, 1u32, 1_640_995_200, &env);
-    pred.grade(0u32, 1u32); // Wrong result (predict TeamA win, got TeamB)
+    pred.grade(0u32, 1u32, 1u32); // Wrong result (predict TeamA win, got TeamB)
 
     assert_eq!(pred.is_correct, Some(false));
     assert_eq!(pred.points_earned, Some(0));
@@ -453,7 +456,7 @@ fn test_prediction_grading_draw() {
     let predictor = Address::generate(&env);
 
     let mut pred = Prediction::new(1, 5, 10, predictor, 1u32, 1u32, 1_640_995_200, &env);
-    pred.grade(1u32, 1u32);
+    pred.grade(1u32, 1u32, 1u32);
 
     assert_eq!(pred.is_correct, Some(true));
     assert_eq!(pred.points_earned, Some(4)); // Exact draw

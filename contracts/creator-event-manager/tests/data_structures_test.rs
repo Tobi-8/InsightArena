@@ -37,6 +37,7 @@ fn make_match(env: &Env, match_id: u64, event_id: u64, match_time: u64) -> Match
         String::from_str(env, "Team Alpha"),
         String::from_str(env, "Team Beta"),
         match_time,
+        1u32,
     )
 }
 
@@ -312,6 +313,7 @@ fn test_match_validate_team_a_too_long() {
         String::from_bytes(&env, &long_name),
         String::from_str(&env, "Team B"),
         0,
+        1u32,
     );
     assert_eq!(m.validate(), Err("Team A name exceeds maximum length"));
 }
@@ -326,6 +328,7 @@ fn test_match_validate_team_b_too_long() {
         String::from_str(&env, "Team A"),
         String::from_bytes(&env, &long_name),
         0,
+        1u32,
     );
     assert_eq!(m.validate(), Err("Team B name exceeds maximum length"));
 }
@@ -442,7 +445,7 @@ fn test_prediction_grade_team_a_correct() {
         1_640_995_200,
         &env,
     );
-    pred.grade(2u32, 1u32);  // Exact match
+    pred.grade(2u32, 1u32, 1u32);  // Exact match
     assert_eq!(pred.is_correct, Some(true));
     assert_eq!(pred.points_earned, Some(4)); // 1 + 3 for exact
     assert!(pred.is_winner());
@@ -461,7 +464,7 @@ fn test_prediction_grade_team_a_wrong() {
         1_640_995_200,
         &env,
     );
-    pred.grade(1u32, 2u32);  // Wrong result (predict 2-1 TeamA, got 1-2 TeamB)
+    pred.grade(1u32, 2u32, 1u32);  // Wrong result
     assert_eq!(pred.is_correct, Some(false));
     assert_eq!(pred.points_earned, Some(0));
     assert!(!pred.is_winner());
@@ -480,7 +483,7 @@ fn test_prediction_grade_draw_correct() {
         1_640_995_200,
         &env,
     );
-    pred.grade(1u32, 1u32);  // Exact draw
+    pred.grade(1u32, 1u32, 1u32);  // Exact draw
     assert_eq!(pred.is_correct, Some(true));
     assert_eq!(pred.points_earned, Some(4)); // Exact draw
     assert!(pred.is_winner());
