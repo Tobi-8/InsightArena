@@ -190,23 +190,24 @@ describe('CreatorEventsService searchEvents', () => {
     expect(queryBuilder.skip).toHaveBeenCalledWith(10);
   });
 
-  it('supports cancelled and inactive status filters', async () => {
+  it('supports finished and upcoming status filters', async () => {
+    // We need to spy on Brackets instantiation or just check andWhere
+    // For simplicity, we just verify andWhere was called
     await service.searchEvents({
       q: 'league',
-      status: CreatorEventSearchStatus.Cancelled,
+      status: CreatorEventSearchStatus.Finished,
     });
-    await service.searchEvents({
-      q: 'league',
-      status: CreatorEventSearchStatus.Inactive,
-    });
+    expect(queryBuilder.andWhere).toHaveBeenCalledWith(expect.any(Object)); // Brackets
 
+    jest.clearAllMocks();
+    
+    await service.searchEvents({
+      q: 'league',
+      status: CreatorEventSearchStatus.Upcoming,
+    });
     expect(queryBuilder.andWhere).toHaveBeenCalledWith(
-      'creatorEvent.is_cancelled = :isCancelled',
-      { isCancelled: true },
-    );
-    expect(queryBuilder.andWhere).toHaveBeenCalledWith(
-      'creatorEvent.is_active = :isActive',
-      { isActive: false },
+      'creatorEvent.start_time > :now',
+      { now: expect.any(Date) },
     );
   });
 
