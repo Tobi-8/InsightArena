@@ -288,6 +288,7 @@ export class AdminService {
   async banUser(id: string, reason: string, adminId: string): Promise<User> {
     const user = await this.usersRepository.findOne({ where: { id } });
     if (!user) throw new NotFoundException('User not found');
+    if (user.is_banned) throw new ConflictException('User is already banned');
 
     user.is_banned = true;
     user.ban_reason = reason;
@@ -307,6 +308,7 @@ export class AdminService {
   async unbanUser(id: string, adminId: string): Promise<User> {
     const user = await this.usersRepository.findOne({ where: { id } });
     if (!user) throw new NotFoundException('User not found');
+    if (!user.is_banned) throw new BadRequestException('User is not banned');
 
     user.is_banned = false;
     user.ban_reason = null;

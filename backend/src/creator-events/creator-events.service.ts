@@ -653,14 +653,19 @@ export class CreatorEventsService {
           isCancelled: false,
         });
         break;
-      case CreatorEventSearchStatus.Cancelled:
-        queryBuilder.andWhere('creatorEvent.is_cancelled = :isCancelled', {
-          isCancelled: true,
-        });
+      case CreatorEventSearchStatus.Finished:
+        queryBuilder.andWhere(
+          new Brackets((qb) => {
+            qb.where('creatorEvent.end_time < :now', { now: new Date() }).orWhere(
+              'creatorEvent.is_active = :isActive',
+              { isActive: false },
+            );
+          }),
+        );
         break;
-      case CreatorEventSearchStatus.Inactive:
-        queryBuilder.andWhere('creatorEvent.is_active = :isActive', {
-          isActive: false,
+      case CreatorEventSearchStatus.Upcoming:
+        queryBuilder.andWhere('creatorEvent.start_time > :now', {
+          now: new Date(),
         });
         break;
       case CreatorEventSearchStatus.All:

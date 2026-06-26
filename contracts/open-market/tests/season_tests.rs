@@ -615,28 +615,44 @@ fn test_participant_count_does_not_double_count() {
 #[test]
 fn test_reset_season_points_zeroes_all_user_points() {
     let env = Env::default();
-    let (client, xlm_token, admin, _oracle) = deploy(&env);
+    let (client, xlm_token, admin, oracle) = deploy(&env);
 
-    fund(&env, &xlm_token, &admin, 200_000_000);
+    fund(&env, &xlm_token, &admin, 500_000_000);
     approve_reward_pool(&env, &xlm_token, &admin, &client.address, 100_000_000);
 
     let season_id = client.create_season(&admin, &0, &10_000, &100_000_000);
 
-    let user1 = Address::generate(&env);
-    let user2 = Address::generate(&env);
-    fund(&env, &xlm_token, &user1, 50_000_000);
-    fund(&env, &xlm_token, &user2, 50_000_000);
+    let winner1 = Address::generate(&env);
+    let winner2 = Address::generate(&env);
+    let winner3 = Address::generate(&env);
+    let loser = Address::generate(&env);
 
-    let market_id = client.create_market(&admin, &default_market_params(&env));
-    client.submit_prediction(&user1, &market_id, &symbol_short!("yes"), &10_000_000);
-    client.submit_prediction(&user2, &market_id, &symbol_short!("yes"), &10_000_000);
+    settle_winning_market(&env, &client, &xlm_token, &oracle, &winner1, &loser, 10_000_000, 10_000_000);
+    settle_winning_market(&env, &client, &xlm_token, &oracle, &winner2, &loser, 10_000_000, 10_000_000);
+    settle_winning_market(&env, &client, &xlm_token, &oracle, &winner3, &loser, 10_000_000, 10_000_000);
 
-    client.reset_season_points(&admin, &season_id);
+    let p1 = client.get_user_stats(&winner1);
+    let p2 = client.get_user_stats(&winner2);
+    let p3 = client.get_user_stats(&winner3);
 
-    let profile1_after = client.get_user_stats(&user1);
-    let profile2_after = client.get_user_stats(&user2);
-    assert_eq!(profile1_after.season_points, 0);
-    assert_eq!(profile2_after.season_points, 0);
+    assert!(p1.season_points > 0);
+    assert!(p2.season_points > 0);
+    assert!(p3.season_points > 0);
+
+    let new_season_id = client.create_season(&admin, &10_000, &20_000, &100_000_000);
+    client.reset_season_points(&admin, &new_season_id);
+
+    let p1_after = client.get_user_stats(&winner1);
+    let p2_after = client.get_user_stats(&winner2);
+    let p3_after = client.get_user_stats(&winner3);
+
+    assert_eq!(p1_after.season_points, 0);
+    assert_eq!(p2_after.season_points, 0);
+    assert_eq!(p3_after.season_points, 0);
+
+    env.ledger().set_timestamp(15_000);
+    let active = client.get_active_season().unwrap();
+    assert_eq!(active.season_id, new_season_id);
 }
 
 #[test]
