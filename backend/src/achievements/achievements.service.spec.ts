@@ -166,4 +166,55 @@ describe('AchievementsService', () => {
       expect(savedTypes()).not.toContain(AchievementType.ACCURACY_90);
     });
   });
+
+  describe('idempotency: no double-award', () => {
+    const qualifyingUser = {
+      id: 'user-1',
+      stellar_address: 'GABC123',
+      total_predictions: 1,
+      correct_predictions: 0,
+      total_staked_stroops: '0',
+      reputation_score: 0,
+    } as User;
+
+    const firstPredictionAchievement = {
+      id: 'ach-first-prediction',
+      type: AchievementType.FIRST_PREDICTION,
+      title: 'First Step',
+    } as Achievement;
+
+    const existingUserAchievement = {
+      id: 'ua-1',
+      user: qualifyingUser,
+      achievement: firstPredictionAchievement,
+      is_unlocked: true,
+      unlocked_at: new Date(),
+    } as UserAchievement;
+
+    beforeEach(() => {
+      usersRepository.findOne.mockResolvedValue(qualifyingUser);
+      achievementsRepository.findOne.mockResolvedValue(firstPredictionAchievement);
+      // First invocation: no existing record yet → save triggers
+      userAchievementsRepository.findOne.mockResolvedValueOnce(null);
+      // Second invocation: record already exists → save is skipped
+      userAchievementsRepository.findOne.mockResolvedValue(existingUserAchievement);
+    });
+
+    it('should save FIRST_PREDICTION exactly once when checkAndUnlockAchievements is called twice', async () => {
+      await service.checkAndUnlockAchievements(qualifyingUser);
+      await service.checkAndUnlockAchievements(qualifyingUser);
+
+      expect(userAchievementsRepository.save).toHaveBeenCalledTimes(1);
+    });
+
+    it('should call findOne on every invocation to guard against duplicate rows', async () => {
+      await service.checkAndUnlockAchievements(qualifyingUser);
+      await service.checkAndUnlockAchievements(qualifyingUser);
+
+      // findOne is invoked once per call (proves the guard runs each time, not just the first)
+      expect(userAchievementsRepository.findOne).toHaveBeenCalledTimes(2);
+      // save only fires on the first call when findOne returned null
+      expect(userAchievementsRepository.save).toHaveBeenCalledTimes(1);
+    });
+  });
 });

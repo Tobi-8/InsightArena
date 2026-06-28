@@ -11,6 +11,7 @@ import {
   GlobalSearchDto,
   GlobalSearchResponseDto,
   SearchType,
+  SuggestionsResponseDto,
 } from './dto/global-search.dto';
 
 @Injectable()
@@ -73,6 +74,38 @@ export class SearchService {
       total_competitions,
       page,
       limit,
+    };
+  }
+
+  async getSuggestions(q: string): Promise<SuggestionsResponseDto> {
+    const term = q?.trim() ?? '';
+    if (term.length < 1) {
+      return { markets: [], users: [] };
+    }
+
+    const [markets, users] = await Promise.all([
+      this.marketsRepository
+        .createQueryBuilder('market')
+        .select('market.title')
+        .where('market.is_public = :isPublic', { isPublic: true })
+        .andWhere('market.title ILIKE :term', { term: `${term}%` })
+        .orderBy('market.title', 'ASC')
+        .limit(5)
+        .getMany(),
+      this.usersRepository
+        .createQueryBuilder('user')
+        .select('user.username')
+        .where('user.is_banned = :banned', { banned: false })
+        .andWhere('user.username IS NOT NULL')
+        .andWhere('user.username ILIKE :term', { term: `${term}%` })
+        .orderBy('user.username', 'ASC')
+        .limit(5)
+        .getMany(),
+    ]);
+
+    return {
+      markets: markets.map((m) => m.title),
+      users: users.map((u) => u.username).filter(Boolean) as string[],
     };
   }
 

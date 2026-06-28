@@ -78,6 +78,14 @@ export class CompetitionSearchResult {
   @ApiProperty() visibility: string;
 }
 
+export class SuggestionsResponseDto {
+  @ApiProperty({ type: [String], description: 'Up to 5 matching market titles' })
+  markets: string[];
+
+  @ApiProperty({ type: [String], description: 'Up to 5 matching usernames' })
+  users: string[];
+}
+
 export class GlobalSearchResponseDto {
   @ApiProperty({ type: [MarketSearchResult] })
   markets: MarketSearchResult[];
