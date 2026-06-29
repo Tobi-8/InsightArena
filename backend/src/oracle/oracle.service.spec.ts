@@ -10,6 +10,7 @@ type MockRepo = jest.Mocked<
   Pick<Repository<any>, 'findOne' | 'createQueryBuilder' | 'find' | 'findByIds'>
 >;
 
+
 function createMockQueryBuilder<T>(
   returnValue: any,
 ): Partial<SelectQueryBuilder<T>> {
@@ -296,6 +297,109 @@ describe('OracleService', () => {
       expect(qb.take).toHaveBeenCalledWith(5);
       expect(result.page).toBe(1);
       expect(result.limit).toBe(5);
+    });
+  });
+
+  describe('getStats', () => {
+    function makeCountQb(count: number): Partial<SelectQueryBuilder<any>> {
+      return {
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        getCount: jest.fn().mockResolvedValue(count),
+      } as unknown as Partial<SelectQueryBuilder<any>>;
+    }
+
+    it('should return correct pending, resolved, and overdue counts', async () => {
+      const pendingQb = makeCountQb(3);
+      const resolvedQb = makeCountQb(10);
+      const overdueQb = makeCountQb(2);
+
+      matchRepo.createQueryBuilder
+        .mockReturnValueOnce(pendingQb as unknown as SelectQueryBuilder<any>)
+        .mockReturnValueOnce(resolvedQb as unknown as SelectQueryBuilder<any>)
+        .mockReturnValueOnce(overdueQb as unknown as SelectQueryBuilder<any>);
+
+      const result = await service.getStats();
+
+      expect(result).toEqual({ pending: 3, resolved: 10, overdue: 2 });
+    });
+
+    it('should return zeros when no matches exist', async () => {
+      const zeroQb = makeCountQb(0);
+      matchRepo.createQueryBuilder
+        .mockReturnValueOnce(zeroQb as unknown as SelectQueryBuilder<any>)
+        .mockReturnValueOnce(makeCountQb(0) as unknown as SelectQueryBuilder<any>)
+        .mockReturnValueOnce(makeCountQb(0) as unknown as SelectQueryBuilder<any>);
+
+      const result = await service.getStats();
+
+      expect(result).toEqual({ pending: 0, resolved: 0, overdue: 0 });
+    });
+
+    it('should filter pending matches between now and 24h ago', async () => {
+      const pendingQb = makeCountQb(5) as any;
+      const resolvedQb = makeCountQb(0) as any;
+      const overdueQb = makeCountQb(0) as any;
+
+      matchRepo.createQueryBuilder
+        .mockReturnValueOnce(pendingQb)
+        .mockReturnValueOnce(resolvedQb)
+        .mockReturnValueOnce(overdueQb);
+
+      await service.getStats();
+
+      expect(pendingQb.where).toHaveBeenCalledWith(
+        'm.match_time < :now',
+        expect.any(Object),
+      );
+      expect(pendingQb.andWhere).toHaveBeenCalledWith(
+        'm.result_submitted = :submitted',
+        { submitted: false },
+      );
+      expect(pendingQb.andWhere).toHaveBeenCalledWith(
+        'm.match_time >= :threshold',
+        expect.any(Object),
+      );
+    });
+
+    it('should filter overdue matches as past 24h with no result', async () => {
+      const pendingQb = makeCountQb(0) as any;
+      const resolvedQb = makeCountQb(0) as any;
+      const overdueQb = makeCountQb(4) as any;
+
+      matchRepo.createQueryBuilder
+        .mockReturnValueOnce(pendingQb)
+        .mockReturnValueOnce(resolvedQb)
+        .mockReturnValueOnce(overdueQb);
+
+      await service.getStats();
+
+      expect(overdueQb.where).toHaveBeenCalledWith(
+        'm.match_time < :threshold',
+        expect.any(Object),
+      );
+      expect(overdueQb.andWhere).toHaveBeenCalledWith(
+        'm.result_submitted = :submitted',
+        { submitted: false },
+      );
+    });
+
+    it('should filter resolved matches by result_submitted = true', async () => {
+      const pendingQb = makeCountQb(0) as any;
+      const resolvedQb = makeCountQb(7) as any;
+      const overdueQb = makeCountQb(0) as any;
+
+      matchRepo.createQueryBuilder
+        .mockReturnValueOnce(pendingQb)
+        .mockReturnValueOnce(resolvedQb)
+        .mockReturnValueOnce(overdueQb);
+
+      await service.getStats();
+
+      expect(resolvedQb.where).toHaveBeenCalledWith(
+        'm.result_submitted = :submitted',
+        { submitted: true },
+      );
     });
   });
 });
